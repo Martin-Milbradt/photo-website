@@ -76,7 +76,16 @@
                 const submitBtn = document.getElementById("setup-submit");
                 const errorEl = document.getElementById("setup-error");
 
-                const existing = await loadAuthConfig();
+                let existing;
+                try {
+                    existing = await loadAuthConfig();
+                } catch (error) {
+                    console.error("loadAuthConfig failed:", error);
+                    status.textContent = `Fehler beim Lesen der Konfiguration: ${error.message}`;
+                    status.classList.add("text-red-500");
+                    return;
+                }
+
                 if (existing) {
                     status.textContent =
                         "Passwörter sind bereits konfiguriert. Um sie zu ändern, bearbeiten Sie das Dokument 'config/auth' direkt in der Firebase Console.";

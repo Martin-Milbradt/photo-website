@@ -207,8 +207,12 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     if (isAuthenticated()) {
-        document.getElementById("login-screen").classList.add("hidden");
-        document.getElementById("main-content").classList.remove("hidden");
+        const loginScreen = document.getElementById("login-screen");
+        const mainContent = document.getElementById("main-content");
+        if (!loginScreen || !mainContent) return;
+
+        loginScreen.classList.add("hidden");
+        mainContent.classList.remove("hidden");
 
         if (typeof loadPhotobooks === "function") {
             loadPhotobooks();
