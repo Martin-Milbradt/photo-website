@@ -1,29 +1,133 @@
 const AUTH_CONFIG_COLLECTION = "config";
-const AUTH_CONFIG_DOC = "auth";
-// Pepper mixed into the hash before storage. Not a secret (anyone can read this
-// file), but prevents trivial rainbow-table lookups against dumped Firestore data.
-const PASSWORD_PEPPER = "photobook-auth-v1";
+const AUTH_HASHES_DOC = "auth";
+const AUTH_SALTS_DOC = "salts";
+const SESSIONS_COLLECTION = "sessions";
+const PBKDF2_ITERATIONS = 210000;
+const PBKDF2_HASH_ALGO = "SHA-256";
+const PBKDF2_HASH_BITS = 256;
+const SALT_BYTES = 16;
 
-let authConfigCache = null;
+let authSaltsCache = null;
 
-// eslint-disable-next-line no-unused-vars
-async function hashPassword(password) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(`${PASSWORD_PEPPER}:${password}`);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+function hexToBytes(hex) {
+    const bytes = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    }
+    return bytes;
+}
+
+function bytesToHex(bytes) {
+    return Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 }
 
 // eslint-disable-next-line no-unused-vars
-async function loadAuthConfig() {
-    if (authConfigCache) return authConfigCache;
-    const doc = await db.collection(AUTH_CONFIG_COLLECTION).doc(AUTH_CONFIG_DOC).get();
-    if (!doc.exists) {
-        return null;
+function generateSalt() {
+    const arr = new Uint8Array(SALT_BYTES);
+    crypto.getRandomValues(arr);
+    return bytesToHex(arr);
+}
+
+// eslint-disable-next-line no-unused-vars
+async function derivePasswordHash(password, saltHex) {
+    const encoder = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveBits"]
+    );
+    const bits = await crypto.subtle.deriveBits(
+        {
+            name: "PBKDF2",
+            salt: hexToBytes(saltHex),
+            iterations: PBKDF2_ITERATIONS,
+            hash: PBKDF2_HASH_ALGO,
+        },
+        keyMaterial,
+        PBKDF2_HASH_BITS
+    );
+    return bytesToHex(new Uint8Array(bits));
+}
+
+// eslint-disable-next-line no-unused-vars
+async function loadAuthSalts() {
+    if (authSaltsCache) return authSaltsCache;
+    const doc = await db.collection(AUTH_CONFIG_COLLECTION).doc(AUTH_SALTS_DOC).get();
+    if (!doc.exists) return null;
+    authSaltsCache = doc.data();
+    return authSaltsCache;
+}
+
+function waitForAuthInit() {
+    return new Promise((resolve) => {
+        const unsubscribe = firebase.auth().onAuthStateChanged((user) => {
+            unsubscribe();
+            resolve(user);
+        });
+    });
+}
+
+async function ensureAnonymousAuth() {
+    const existing = await waitForAuthInit();
+    if (existing) return existing;
+    const result = await firebase.auth().signInAnonymously();
+    return result.user;
+}
+
+async function fetchSession() {
+    const user = firebase.auth().currentUser;
+    if (!user) return null;
+    const doc = await db.collection(SESSIONS_COLLECTION).doc(user.uid).get();
+    if (!doc.exists) return null;
+    return doc.data();
+}
+
+async function clearLocalSession() {
+    const user = firebase.auth().currentUser;
+    if (!user) return;
+    try {
+        await db.collection(SESSIONS_COLLECTION).doc(user.uid).delete();
+    } catch (_ignored) {
+        // no-op: either no session exists, or rules blocked delete (shouldn't happen for own uid)
     }
-    authConfigCache = doc.data();
-    return authConfigCache;
+}
+
+async function attemptLogin(password) {
+    await ensureAnonymousAuth();
+    await clearLocalSession();
+
+    const salts = await loadAuthSalts();
+    if (!salts) return { error: "missing-config" };
+
+    const user = firebase.auth().currentUser;
+    const attempts = [
+        { role: "admin", saltKey: "adminSalt" },
+        { role: "friends", saltKey: "friendsSalt" },
+        { role: "family", saltKey: "viewerSalt" },
+    ];
+
+    for (const { role, saltKey } of attempts) {
+        const salt = salts[saltKey];
+        if (!salt) continue;
+        const hash = await derivePasswordHash(password, salt);
+        try {
+            await db.collection(SESSIONS_COLLECTION).doc(user.uid).set({
+                role: role,
+                hash: hash,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            });
+            return { role: role };
+        } catch (error) {
+            if (error.code !== "permission-denied") {
+                return { error: error.message || String(error) };
+            }
+        }
+    }
+    return { error: "invalid-password" };
 }
 
 function setCookie(name, value, days) {
@@ -52,6 +156,9 @@ function deleteCookie(name) {
     document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`;
 }
 
+// Cookies are UX hints only. Real authorization comes from the Firestore session
+// document, which rules check server-side. Forging these cookies does not grant
+// any data access.
 function isAuthenticated() {
     return getCookie("authenticated") === "true";
 }
@@ -94,15 +201,16 @@ function isFriends() {
     return getUserType() === "friends";
 }
 
-async function verifyPassword(password) {
-    const config = await loadAuthConfig();
-    if (!config) return null;
+function applyRoleToUi(role) {
+    setAuthenticated(true);
+    setAdmin(role === "admin");
+    setUserType(role);
+}
 
-    const hash = await hashPassword(password);
-    if (hash === config.adminHash) return "admin";
-    if (hash === config.friendsHash) return "friends";
-    if (hash === config.viewerHash) return "family";
-    return null;
+function clearRoleFromUi() {
+    setAuthenticated(false);
+    setAdmin(false);
+    deleteCookie("userType");
 }
 
 // eslint-disable-next-line no-unused-vars
@@ -111,36 +219,29 @@ async function checkPassword() {
     const errorMsg = document.getElementById("login-error");
     const password = input.value.trim();
 
-    const role = await verifyPassword(password);
+    errorMsg.textContent = "Wird überprüft...";
 
-    if (role === null) {
-        const config = await loadAuthConfig();
-        if (!config) {
-            errorMsg.textContent = "Auth-Konfiguration fehlt. Bitte zuerst setup.html aufrufen.";
-        } else {
-            errorMsg.textContent = "Falsches Passwort. Bitte erneut versuchen.";
-        }
+    const result = await attemptLogin(password);
+    if (result.error) {
+        errorMsg.textContent =
+            result.error === "missing-config"
+                ? "Auth-Konfiguration fehlt. Bitte zuerst setup.html aufrufen."
+                : result.error === "invalid-password"
+                  ? "Falsches Passwort. Bitte erneut versuchen."
+                  : `Fehler: ${result.error}`;
         input.value = "";
         input.focus();
         return;
     }
 
-    setAuthenticated(true);
-    setAdmin(role === "admin");
-    setUserType(role);
+    applyRoleToUi(result.role);
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("main-content").classList.remove("hidden");
     errorMsg.textContent = "";
 
-    if (typeof loadPhotobooks === "function") {
-        loadPhotobooks();
-    }
-    if (typeof loadPhotobookViewer === "function") {
-        loadPhotobookViewer();
-    }
-    if (typeof updateAdminLinkVisibility === "function") {
-        updateAdminLinkVisibility();
-    }
+    if (typeof loadPhotobooks === "function") loadPhotobooks();
+    if (typeof loadPhotobookViewer === "function") loadPhotobookViewer();
+    if (typeof updateAdminLinkVisibility === "function") updateAdminLinkVisibility();
 }
 
 // eslint-disable-next-line no-unused-vars
@@ -149,30 +250,26 @@ async function checkAdminPassword() {
     const errorMsg = document.getElementById("login-error");
     const password = input.value.trim();
 
-    const role = await verifyPassword(password);
+    errorMsg.textContent = "Wird überprüft...";
 
-    if (role !== "admin") {
-        const config = await loadAuthConfig();
-        if (!config) {
-            errorMsg.textContent = "Auth-Konfiguration fehlt. Bitte zuerst setup.html aufrufen.";
-        } else {
-            errorMsg.textContent = "Falsches Hauptpasswort. Bitte erneut versuchen.";
-        }
+    const result = await attemptLogin(password);
+    if (result.role !== "admin") {
+        await clearLocalSession();
+        errorMsg.textContent =
+            result.error === "missing-config"
+                ? "Auth-Konfiguration fehlt. Bitte zuerst setup.html aufrufen."
+                : "Falsches Hauptpasswort. Bitte erneut versuchen.";
         input.value = "";
         input.focus();
         return;
     }
 
-    setAuthenticated(true);
-    setAdmin(true);
-    setUserType("admin");
+    applyRoleToUi("admin");
     document.getElementById("login-screen").classList.add("hidden");
     document.getElementById("main-content").classList.remove("hidden");
     errorMsg.textContent = "";
 
-    if (typeof loadAdminPage === "function") {
-        loadAdminPage();
-    }
+    if (typeof loadAdminPage === "function") loadAdminPage();
 }
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -189,42 +286,35 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    if (window.location.pathname.includes("admin.html")) {
-        if (!isAuthenticated() || !isAdmin()) {
-            setAuthenticated(false);
-            setAdmin(false);
-            if (document.getElementById("login-screen")) {
-                document.getElementById("login-screen").classList.remove("hidden");
+    ensureAnonymousAuth()
+        .then(async () => {
+            const session = await fetchSession();
+            const loginScreen = document.getElementById("login-screen");
+            const mainContent = document.getElementById("main-content");
+            const isAdminPage = window.location.pathname.includes("admin.html");
+
+            if (!session) {
+                clearRoleFromUi();
+                return;
             }
-            if (document.getElementById("main-content")) {
-                document.getElementById("main-content").classList.add("hidden");
-            }
-            if (isAuthenticated() && !isAdmin()) {
+
+            applyRoleToUi(session.role);
+
+            if (isAdminPage && session.role !== "admin") {
                 window.location.href = "index.html";
+                return;
             }
-            return;
-        }
-    }
 
-    if (isAuthenticated()) {
-        const loginScreen = document.getElementById("login-screen");
-        const mainContent = document.getElementById("main-content");
-        if (!loginScreen || !mainContent) return;
+            if (!loginScreen || !mainContent) return;
+            loginScreen.classList.add("hidden");
+            mainContent.classList.remove("hidden");
 
-        loginScreen.classList.add("hidden");
-        mainContent.classList.remove("hidden");
-
-        if (typeof loadPhotobooks === "function") {
-            loadPhotobooks();
-        }
-        if (typeof loadPhotobookViewer === "function") {
-            loadPhotobookViewer();
-        }
-        if (typeof loadAdminPage === "function" && window.location.pathname.includes("admin.html")) {
-            loadAdminPage();
-        }
-        if (typeof updateAdminLinkVisibility === "function") {
-            updateAdminLinkVisibility();
-        }
-    }
+            if (typeof loadPhotobooks === "function") loadPhotobooks();
+            if (typeof loadPhotobookViewer === "function") loadPhotobookViewer();
+            if (typeof loadAdminPage === "function" && isAdminPage) loadAdminPage();
+            if (typeof updateAdminLinkVisibility === "function") updateAdminLinkVisibility();
+        })
+        .catch((error) => {
+            console.error("Auth init failed:", error);
+        });
 });

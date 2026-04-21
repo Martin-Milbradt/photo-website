@@ -66,6 +66,7 @@
         </div>
 
         <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
         <script src="firebase-config.js"></script>
         <script src="auth.js"></script>
@@ -76,19 +77,19 @@
                 const submitBtn = document.getElementById("setup-submit");
                 const errorEl = document.getElementById("setup-error");
 
-                let existing;
+                let salts;
                 try {
-                    existing = await loadAuthConfig();
+                    salts = await loadAuthSalts();
                 } catch (error) {
-                    console.error("loadAuthConfig failed:", error);
+                    console.error("loadAuthSalts failed:", error);
                     status.textContent = `Fehler beim Lesen der Konfiguration: ${error.message}`;
                     status.classList.add("text-red-500");
                     return;
                 }
 
-                if (existing) {
+                if (salts) {
                     status.textContent =
-                        "Passwörter sind bereits konfiguriert. Um sie zu ändern, bearbeiten Sie das Dokument 'config/auth' direkt in der Firebase Console.";
+                        "Passwörter sind bereits konfiguriert. Um sie zu ändern, die Dokumente 'config/auth' und 'config/salts' in der Firebase Console löschen und diese Seite erneut aufrufen.";
                     return;
                 }
                 status.textContent =
@@ -109,21 +110,40 @@
                     }
 
                     submitBtn.disabled = true;
-                    submitBtn.textContent = "Wird gespeichert...";
+                    submitBtn.textContent = "Hashes werden berechnet...";
 
                     try {
+                        const viewerSalt = generateSalt();
+                        const adminSalt = generateSalt();
+                        const friendsSalt = generateSalt();
+
                         const [viewerHash, adminHash, friendsHash] = await Promise.all([
-                            hashPassword(viewer),
-                            hashPassword(admin),
-                            hashPassword(friends),
+                            derivePasswordHash(viewer, viewerSalt),
+                            derivePasswordHash(admin, adminSalt),
+                            derivePasswordHash(friends, friendsSalt),
                         ]);
 
-                        await db.collection("config").doc("auth").set({
-                            viewerHash: viewerHash,
-                            adminHash: adminHash,
-                            friendsHash: friendsHash,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        });
+                        submitBtn.textContent = "Wird gespeichert...";
+
+                        await db
+                            .collection("config")
+                            .doc("salts")
+                            .set({
+                                viewerSalt: viewerSalt,
+                                adminSalt: adminSalt,
+                                friendsSalt: friendsSalt,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            });
+
+                        await db
+                            .collection("config")
+                            .doc("auth")
+                            .set({
+                                viewerHash: viewerHash,
+                                adminHash: adminHash,
+                                friendsHash: friendsHash,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            });
 
                         form.classList.add("hidden");
                         status.textContent =

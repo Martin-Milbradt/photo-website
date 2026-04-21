@@ -23,8 +23,9 @@ module.exports = [
                 setUserType: "readonly",
                 checkPassword: "readonly",
                 checkAdminPassword: "readonly",
-                hashPassword: "readonly",
-                loadAuthConfig: "readonly",
+                derivePasswordHash: "readonly",
+                generateSalt: "readonly",
+                loadAuthSalts: "readonly",
                 // Functions from photobooks.js (loaded via script tags)
                 getPhotobooks: "readonly",
                 subscribeToPhotobooks: "readonly",
