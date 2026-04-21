@@ -1,8 +1,29 @@
+const PHOTOBOOKS_CACHE_KEY = "photo_website_photobooks_v1";
+
 // eslint-disable-next-line no-unused-vars
 let unsubscribePhotobooks = null;
 let map = null;
 let mapMarkers = [];
 let currentPhotobooks = [];
+
+function savePhotobooksCache(photobooks) {
+    try {
+        localStorage.setItem(PHOTOBOOKS_CACHE_KEY, JSON.stringify(photobooks));
+    } catch (_error) {
+        // Ignore quota or serialization failures; cache is best-effort.
+    }
+}
+
+function readPhotobooksCache() {
+    try {
+        const raw = localStorage.getItem(PHOTOBOOKS_CACHE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : null;
+    } catch (_error) {
+        return null;
+    }
+}
 
 function initTabs() {
     const chronologicalTab = document.getElementById("tab-chronological");
@@ -117,76 +138,91 @@ function renderMap(photobooks) {
     }
 }
 
+function renderPhotobooks(photobooks) {
+    currentPhotobooks = photobooks;
+    savePhotobooksCache(photobooks);
+
+    const container = document.getElementById("photobooks-list");
+    const emptyState = document.getElementById("empty-state");
+    if (!container || !emptyState) return;
+
+    const userType = getUserType();
+    let filteredPhotobooks = photobooks;
+
+    if (userType === "friends") {
+        filteredPhotobooks = photobooks.filter((p) => p.availableToFriends === true);
+    }
+
+    if (filteredPhotobooks.length === 0) {
+        container.classList.add("hidden");
+        emptyState.classList.remove("hidden");
+    } else {
+        container.classList.remove("hidden");
+        emptyState.classList.add("hidden");
+
+        container.innerHTML = filteredPhotobooks
+            .map(
+                (photobook) => `
+            <a href="photobook.html?id=${photobook.id}"
+                class="group bg-gradient-to-br from-white to-travel-sand rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-travel-teal flex flex-col h-full">
+                <div class="mb-4 flex items-center justify-center flex-shrink-0 ${
+                    photobook.imageUrl ? "h-48" : ""
+                }">
+                    ${
+                        photobook.imageUrl
+                            ? `<img src="${escapeHtml(photobook.imageUrl)}" alt="${escapeHtml(
+                                  photobook.title
+                              )}" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';">
+                         <svg class="w-12 h-12 text-travel-coral group-hover:scale-110 transition-transform duration-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                         </svg>`
+                            : `<svg class="w-12 h-12 text-travel-coral group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                         </svg>`
+                    }
+                </div>
+                <div class="flex flex-col justify-end flex-grow">
+                    <h2 class="text-xl font-bold text-gray-800 mb-1 group-hover:text-travel-coral transition-colors">${escapeHtml(
+                        photobook.title
+                    )}</h2>
+                    ${
+                        photobook.date
+                            ? `<p class="text-sm text-gray-500 mb-2">${escapeHtml(photobook.date)}</p>`
+                            : ""
+                    }
+                </div>
+            </a>
+        `
+            )
+            .join("");
+    }
+
+    const mapContent = document.getElementById("tab-content-map");
+    if (mapContent && !mapContent.classList.contains("hidden")) {
+        renderMap(photobooks);
+    }
+}
+
+// eslint-disable-next-line no-unused-vars
+function prerenderPhotobooksFromCache() {
+    const cached = readPhotobooksCache();
+    if (cached && cached.length > 0) {
+        renderPhotobooks(cached);
+    }
+}
+
 // eslint-disable-next-line no-unused-vars
 async function loadPhotobooks() {
     const container = document.getElementById("photobooks-list");
-    const emptyState = document.getElementById("empty-state");
 
     updateAdminLinkVisibility();
     initTabs();
 
-    function renderPhotobooks(photobooks) {
-        currentPhotobooks = photobooks;
-        const userType = getUserType();
-        let filteredPhotobooks = photobooks;
-
-        if (userType === "friends") {
-            filteredPhotobooks = photobooks.filter((p) => p.availableToFriends === true);
-        }
-
-        if (filteredPhotobooks.length === 0) {
-            container.classList.add("hidden");
-            emptyState.classList.remove("hidden");
-        } else {
-            container.classList.remove("hidden");
-            emptyState.classList.add("hidden");
-
-            container.innerHTML = filteredPhotobooks
-                .map(
-                    (photobook) => `
-                <a href="photobook.html?id=${photobook.id}"
-                    class="group bg-gradient-to-br from-white to-travel-sand rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 border-2 border-transparent hover:border-travel-teal flex flex-col h-full">
-                    <div class="mb-4 flex items-center justify-center flex-shrink-0 ${
-                        photobook.imageUrl ? "h-48" : ""
-                    }">
-                        ${
-                            photobook.imageUrl
-                                ? `<img src="${escapeHtml(photobook.imageUrl)}" alt="${escapeHtml(
-                                      photobook.title
-                                  )}" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition-transform duration-300" onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';">
-                             <svg class="w-12 h-12 text-travel-coral group-hover:scale-110 transition-transform duration-300 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                             </svg>`
-                                : `<svg class="w-12 h-12 text-travel-coral group-hover:scale-110 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                             </svg>`
-                        }
-                    </div>
-                    <div class="flex flex-col justify-end flex-grow">
-                        <h2 class="text-xl font-bold text-gray-800 mb-1 group-hover:text-travel-coral transition-colors">${escapeHtml(
-                            photobook.title
-                        )}</h2>
-                        ${
-                            photobook.date
-                                ? `<p class="text-sm text-gray-500 mb-2">${escapeHtml(photobook.date)}</p>`
-                                : ""
-                        }
-                    </div>
-                </a>
-            `
-                )
-                .join("");
-        }
-
-        const mapContent = document.getElementById("tab-content-map");
-        if (mapContent && !mapContent.classList.contains("hidden")) {
-            renderMap(photobooks);
-        }
-    }
-
     unsubscribePhotobooks = subscribeToPhotobooks(renderPhotobooks, () => {
-        container.innerHTML =
-            '<div class="col-span-full text-center py-12"><div class="inline-flex items-center gap-2 text-red-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>Fehler beim Laden der Fotobücher. Bitte Seite aktualisieren.</span></div></div>';
+        if (container) {
+            container.innerHTML =
+                '<div class="col-span-full text-center py-12"><div class="inline-flex items-center gap-2 text-red-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>Fehler beim Laden der Fotobücher. Bitte Seite aktualisieren.</span></div></div>';
+        }
     });
 }
 

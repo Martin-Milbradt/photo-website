@@ -40,6 +40,8 @@ module.exports = [
                 geocodeLocation: "readonly",
                 // Functions from main.js (loaded via script tags)
                 loadPhotobooks: "readonly",
+                prerenderPhotobooksFromCache: "readonly",
+                renderPhotobooks: "readonly",
                 unsubscribePhotobooks: "writable",
                 // Functions from photobook-viewer.js (loaded via script tags)
                 loadPhotobookViewer: "readonly",

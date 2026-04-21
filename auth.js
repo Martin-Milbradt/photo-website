@@ -371,6 +371,16 @@ document.addEventListener("DOMContentLoaded", function () {
     // cookie here grants no data access (data loads will just fail later).
     if (cookieAuthed) {
         setAuthUi(true, loginScreen, mainContent);
+        // Paint the photobooks list synchronously from localStorage so "back"
+        // navigation from admin / photobook pages shows content instantly,
+        // before Firebase/Firestore init completes. Subscription will
+        // reconcile once it fires.
+        if (typeof prerenderPhotobooksFromCache === "function") {
+            prerenderPhotobooksFromCache();
+        }
+        if (typeof updateAdminLinkVisibility === "function") {
+            updateAdminLinkVisibility();
+        }
     }
 
     const authReady = ensureAnonymousAuth();
