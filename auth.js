@@ -296,6 +296,17 @@ async function checkAdminPassword() {
     if (typeof loadAdminPage === "function") loadAdminPage();
 }
 
+function setAuthUi(showMain, loginScreen, mainContent) {
+    if (!loginScreen || !mainContent) return;
+    if (showMain) {
+        loginScreen.classList.add("hidden");
+        mainContent.classList.remove("hidden");
+    } else {
+        loginScreen.classList.remove("hidden");
+        mainContent.classList.add("hidden");
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const passwordInput = document.getElementById("password-input");
     if (passwordInput) {
@@ -310,15 +321,25 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
+    const loginScreen = document.getElementById("login-screen");
+    const mainContent = document.getElementById("main-content");
+    const isAdminPage = window.location.pathname.includes("admin.html");
+
+    // Optimistic render from cookies to avoid flashing the login screen during
+    // Firebase init and the async session fetch. Cookies are UX hints only;
+    // real authorization runs server-side via Firestore rules, so a forged
+    // cookie here grants no data access (data loads will just fail later).
+    if (isAuthenticated() && (!isAdminPage || isAdmin())) {
+        setAuthUi(true, loginScreen, mainContent);
+    }
+
     ensureAnonymousAuth()
         .then(async () => {
             const session = await fetchSession();
-            const loginScreen = document.getElementById("login-screen");
-            const mainContent = document.getElementById("main-content");
-            const isAdminPage = window.location.pathname.includes("admin.html");
 
             if (!session) {
                 clearRoleFromUi();
+                setAuthUi(false, loginScreen, mainContent);
                 return;
             }
 
@@ -328,12 +349,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 // Non-admin session on the admin page: leave the login screen
                 // visible so the user can enter the admin password to upgrade,
                 // instead of redirecting them away.
+                setAuthUi(false, loginScreen, mainContent);
                 return;
             }
 
-            if (!loginScreen || !mainContent) return;
-            loginScreen.classList.add("hidden");
-            mainContent.classList.remove("hidden");
+            setAuthUi(true, loginScreen, mainContent);
 
             if (typeof loadPhotobooks === "function") loadPhotobooks();
             if (typeof loadPhotobookViewer === "function") loadPhotobookViewer();
@@ -342,5 +362,6 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .catch((error) => {
             console.error("Auth init failed:", error);
+            setAuthUi(false, loginScreen, mainContent);
         });
 });
