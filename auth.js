@@ -81,9 +81,22 @@ async function ensureAnonymousAuth() {
 async function fetchSession() {
     const user = firebase.auth().currentUser;
     if (!user) return null;
-    const doc = await db.collection(SESSIONS_COLLECTION).doc(user.uid).get();
-    if (!doc.exists) return null;
-    return doc.data();
+    const ref = db.collection(SESSIONS_COLLECTION).doc(user.uid);
+    // Cache first so return visits don't wait on a server round-trip. Fall back
+    // to the server only if the local cache has no copy of this doc.
+    try {
+        const cached = await ref.get({ source: "cache" });
+        if (cached.exists) return cached.data();
+    } catch (_cacheMiss) {
+        // no cached copy, try server
+    }
+    try {
+        const fresh = await ref.get({ source: "server" });
+        if (fresh.exists) return fresh.data();
+    } catch (error) {
+        console.error("fetchSession server fetch failed:", error);
+    }
+    return null;
 }
 
 async function clearLocalSession() {
@@ -327,22 +340,57 @@ document.addEventListener("DOMContentLoaded", function () {
     const loginScreen = document.getElementById("login-screen");
     const mainContent = document.getElementById("main-content");
     const isAdminPage = window.location.pathname.includes("admin.html");
+    const cookieAuthed = isAuthenticated() && (!isAdminPage || isAdmin());
+
+    let contentStarted = false;
+    function startContent() {
+        if (contentStarted) return;
+        contentStarted = true;
+        if (typeof loadPhotobooks === "function") loadPhotobooks();
+        if (typeof loadPhotobookViewer === "function") loadPhotobookViewer();
+        if (typeof loadAdminPage === "function" && isAdminPage) loadAdminPage();
+        if (typeof updateAdminLinkVisibility === "function") updateAdminLinkVisibility();
+    }
+    function stopContent() {
+        contentStarted = false;
+        if (typeof unsubscribePhotobooks !== "undefined" && unsubscribePhotobooks) {
+            unsubscribePhotobooks();
+            // eslint-disable-next-line no-global-assign
+            unsubscribePhotobooks = null;
+        }
+        if (typeof unsubscribeAdminPhotobooks !== "undefined" && unsubscribeAdminPhotobooks) {
+            unsubscribeAdminPhotobooks();
+            // eslint-disable-next-line no-global-assign
+            unsubscribeAdminPhotobooks = null;
+        }
+    }
 
     // Optimistic render from cookies to avoid flashing the login screen during
     // Firebase init and the async session fetch. Cookies are UX hints only;
     // real authorization runs server-side via Firestore rules, so a forged
     // cookie here grants no data access (data loads will just fail later).
-    if (isAuthenticated() && (!isAdminPage || isAdmin())) {
+    if (cookieAuthed) {
         setAuthUi(true, loginScreen, mainContent);
     }
 
-    ensureAnonymousAuth()
+    const authReady = ensureAnonymousAuth();
+
+    // As soon as anon auth is ready, start the photobook subscription so
+    // Firestore's IndexedDB cache can paint the list without waiting on the
+    // session-verification round-trip below. If the session check later fails,
+    // stopContent() tears this down.
+    if (cookieAuthed) {
+        authReady.then(() => startContent()).catch(() => {});
+    }
+
+    authReady
         .then(async () => {
             const session = await fetchSession();
 
             if (!session) {
                 clearRoleFromUi();
                 setAuthUi(false, loginScreen, mainContent);
+                stopContent();
                 return;
             }
 
@@ -353,18 +401,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 // visible so the user can enter the admin password to upgrade,
                 // instead of redirecting them away.
                 setAuthUi(false, loginScreen, mainContent);
+                stopContent();
                 return;
             }
 
             setAuthUi(true, loginScreen, mainContent);
-
-            if (typeof loadPhotobooks === "function") loadPhotobooks();
-            if (typeof loadPhotobookViewer === "function") loadPhotobookViewer();
-            if (typeof loadAdminPage === "function" && isAdminPage) loadAdminPage();
-            if (typeof updateAdminLinkVisibility === "function") updateAdminLinkVisibility();
+            startContent();
         })
         .catch((error) => {
             console.error("Auth init failed:", error);
             setAuthUi(false, loginScreen, mainContent);
+            stopContent();
         });
 });

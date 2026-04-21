@@ -40,11 +40,13 @@ module.exports = [
                 geocodeLocation: "readonly",
                 // Functions from main.js (loaded via script tags)
                 loadPhotobooks: "readonly",
+                unsubscribePhotobooks: "writable",
                 // Functions from photobook-viewer.js (loaded via script tags)
                 loadPhotobookViewer: "readonly",
                 // Functions from admin.js (loaded via script tags)
                 updateAdminLinkVisibility: "readonly",
                 loadAdminPage: "readonly",
+                unsubscribeAdminPhotobooks: "writable",
                 deletePhotobookById: "readonly",
                 toggleFriendsVisibility: "readonly",
                 closeEditModal: "readonly",
