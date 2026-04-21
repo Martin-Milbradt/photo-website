@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Verwaltung - Fotobuch hinzufügen</title>
+        <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+        <link rel="stylesheet" href="dist/output.css" />
+    </head>
+    <body class="bg-gradient-to-br from-travel-ocean via-travel-teal to-travel-sand min-h-screen">
+        <div id="login-screen" class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full text-center">
+                <div class="mb-6">
+                    <svg
+                        class="w-16 h-16 mx-auto mb-4 text-travel-coral"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        ></path>
+                    </svg>
+                    <h1
+                        class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-travel-coral to-travel-sunset bg-clip-text text-transparent mb-2"
+                    >
+                        Verwaltungszugang
+                    </h1>
+                    <p class="text-gray-600">Hauptpasswort eingeben</p>
+                </div>
+                <input
+                    type="password"
+                    id="password-input"
+                    placeholder="Hauptpasswort"
+                    autocomplete="off"
+                    class="w-full px-4 py-3 mb-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                />
+                <button
+                    id="login-btn"
+                    onclick="checkAdminPassword()"
+                    class="w-full bg-gradient-to-r from-travel-coral to-travel-sunset text-white py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                >
+                    Anmelden
+                </button>
+                <p id="login-error" class="text-red-500 mt-4 text-sm min-h-[20px]"></p>
+            </div>
+        </div>
+
+        <div id="main-content" class="hidden min-h-screen py-8 px-4">
+            <div class="max-w-4xl mx-auto">
+                <header class="bg-white rounded-2xl shadow-lg p-6 mb-8">
+                    <a
+                        href="index.html"
+                        class="inline-flex items-center text-travel-teal hover:text-travel-ocean mb-4 font-semibold transition-colors"
+                    >
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                            ></path>
+                        </svg>
+                        Zurück zu Fotobüchern
+                    </a>
+                    <h1
+                        class="text-3xl font-bold bg-gradient-to-r from-travel-coral to-travel-sunset bg-clip-text text-transparent"
+                    >
+                        Neues Fotobuch hinzufügen
+                    </h1>
+                </header>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-8">
+                    <form id="add-photobook-form" class="space-y-6">
+                        <div>
+                            <label for="photobook-title" class="block text-sm font-semibold text-gray-700 mb-2"
+                                >Fotobuch Titel</label
+                            >
+                            <input
+                                type="text"
+                                id="photobook-title"
+                                placeholder="z.B. Sommer 2024"
+                                required
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                            />
+                        </div>
+
+                        <div>
+                            <label for="photobook-date" class="block text-sm font-semibold text-gray-700 mb-2"
+                                >Datum (MM.JJJJ) <span class="text-red-500">*</span></label
+                            >
+                            <input
+                                type="text"
+                                id="photobook-date"
+                                placeholder="z.B. 06.2024"
+                                required
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                            />
+                            <p class="mt-2 text-sm text-gray-500">Format: MM.JJJJ (z.B. 06.2024)</p>
+                        </div>
+
+                        <div>
+                            <label for="photobook-url" class="block text-sm font-semibold text-gray-700 mb-2"
+                                >Fotobuch Link</label
+                            >
+                            <input
+                                type="url"
+                                id="photobook-url"
+                                placeholder="URL oder iframe einfügen..."
+                                required
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                            />
+                            <p class="mt-2 text-sm text-gray-500">PosterXXL oder PhotoConnector URL/iframe einfügen</p>
+                        </div>
+
+                        <div>
+                            <label for="photobook-image-url" class="block text-sm font-semibold text-gray-700 mb-2"
+                                >Bild URL (optional)</label
+                            >
+                            <input
+                                type="url"
+                                id="photobook-image-url"
+                                placeholder="https://example.com/image.jpg"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                            />
+                            <p class="mt-2 text-sm text-gray-500">
+                                Optional: URL zu einem Bild, das auf der Übersichtsseite angezeigt wird
+                            </p>
+                        </div>
+
+                        <div>
+                            <label for="photobook-ort" class="block text-sm font-semibold text-gray-700 mb-2"
+                                >Ort (optional)</label
+                            >
+                            <input
+                                type="text"
+                                id="photobook-ort"
+                                placeholder="z.B. Paris, Frankreich"
+                                class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                            />
+                            <p class="mt-2 text-sm text-gray-500">
+                                Optional: Ort für die Kartenansicht (z.B. Stadt, Land)
+                            </p>
+                        </div>
+
+                        <div class="flex items-start gap-3 p-4 bg-travel-sand bg-opacity-30 rounded-xl">
+                            <input
+                                type="checkbox"
+                                id="available-to-friends"
+                                class="mt-1 w-5 h-5 text-travel-teal border-gray-300 rounded focus:ring-travel-teal"
+                            />
+                            <div>
+                                <label
+                                    for="available-to-friends"
+                                    class="block text-sm font-semibold text-gray-700 cursor-pointer"
+                                    >Für Freunde verfügbar</label
+                                >
+                                <p class="mt-1 text-sm text-gray-500">
+                                    Freunde sehen nur Fotobücher, die mit diesem Kästchen markiert sind
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="w-full bg-gradient-to-r from-travel-coral to-travel-sunset text-white py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                        >
+                            Fotobuch hinzufügen
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+                    <h2
+                        class="text-2xl font-bold bg-gradient-to-r from-travel-teal to-travel-ocean bg-clip-text text-transparent mb-6"
+                    >
+                        Vorhandene Fotobücher
+                    </h2>
+                    <div id="photobooks-list" class="space-y-4">
+                        <!-- Existing photobooks will be listed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div
+            id="edit-modal"
+            class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        >
+            <div class="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="flex items-center justify-between mb-6">
+                    <h2
+                        class="text-2xl font-bold bg-gradient-to-r from-travel-coral to-travel-sunset bg-clip-text text-transparent"
+                    >
+                        Fotobuch bearbeiten
+                    </h2>
+                    <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                            ></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="edit-photobook-form" class="space-y-6">
+                    <div>
+                        <label for="edit-photobook-title" class="block text-sm font-semibold text-gray-700 mb-2"
+                            >Fotobuch Titel</label
+                        >
+                        <input
+                            type="text"
+                            id="edit-photobook-title"
+                            placeholder="z.B. Sommer 2024"
+                            required
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                    </div>
+
+                    <div>
+                        <label for="edit-photobook-date" class="block text-sm font-semibold text-gray-700 mb-2"
+                            >Datum (MM.JJJJ) <span class="text-red-500">*</span></label
+                        >
+                        <input
+                            type="text"
+                            id="edit-photobook-date"
+                            placeholder="z.B. 06.2024"
+                            required
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                        <p class="mt-2 text-sm text-gray-500">Format: MM.JJJJ (z.B. 06.2024)</p>
+                    </div>
+
+                    <div>
+                        <label for="edit-photobook-url" class="block text-sm font-semibold text-gray-700 mb-2"
+                            >Fotobuch Link</label
+                        >
+                        <input
+                            type="url"
+                            id="edit-photobook-url"
+                            placeholder="URL oder iframe einfügen..."
+                            required
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                        <p class="mt-2 text-sm text-gray-500">PosterXXL oder PhotoConnector URL/iframe einfügen</p>
+                    </div>
+
+                    <div>
+                        <label for="edit-photobook-image-url" class="block text-sm font-semibold text-gray-700 mb-2"
+                            >Bild URL (optional)</label
+                        >
+                        <input
+                            type="url"
+                            id="edit-photobook-image-url"
+                            placeholder="https://example.com/image.jpg"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                        <p class="mt-2 text-sm text-gray-500">
+                            Optional: URL zu einem Bild, das auf der Übersichtsseite angezeigt wird
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="edit-photobook-ort" class="block text-sm font-semibold text-gray-700 mb-2"
+                            >Ort (optional)</label
+                        >
+                        <input
+                            type="text"
+                            id="edit-photobook-ort"
+                            placeholder="z.B. Paris, Frankreich"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                        <p class="mt-2 text-sm text-gray-500">Optional: Ort für die Kartenansicht (z.B. Stadt, Land)</p>
+                    </div>
+
+                    <div class="flex items-start gap-3 p-4 bg-travel-sand bg-opacity-30 rounded-xl">
+                        <input
+                            type="checkbox"
+                            id="edit-available-to-friends"
+                            class="mt-1 w-5 h-5 text-travel-teal border-gray-300 rounded focus:ring-travel-teal"
+                        />
+                        <div>
+                            <label
+                                for="edit-available-to-friends"
+                                class="block text-sm font-semibold text-gray-700 cursor-pointer"
+                                >Für Freunde verfügbar</label
+                            >
+                            <p class="mt-1 text-sm text-gray-500">
+                                Freunde sehen nur Fotobücher, die mit diesem Kästchen markiert sind
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-3">
+                        <button
+                            type="button"
+                            onclick="closeEditModal()"
+                            class="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-colors"
+                        >
+                            Abbrechen
+                        </button>
+                        <button
+                            type="button"
+                            id="edit-save-btn"
+                            onclick="savePhotobookEdit()"
+                            class="flex-1 bg-gradient-to-r from-travel-coral to-travel-sunset text-white py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                        >
+                            Speichern
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+        <script src="firebase-config.js"></script>
+        <script src="auth.js"></script>
+        <script src="photobooks.js"></script>
+        <script src="admin.js"></script>
+    </body>
+</html>

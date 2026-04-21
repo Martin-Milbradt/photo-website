@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Reise Fotobücher</title>
+        <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+        <link rel="stylesheet" href="dist/output.css" />
+    </head>
+    <body class="bg-gradient-to-br from-travel-ocean via-travel-teal to-travel-sand min-h-screen">
+        <div id="login-screen" class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full text-center">
+                <div class="mb-6">
+                    <svg
+                        class="w-16 h-16 mx-auto mb-4 text-travel-coral"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        ></path>
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                        ></path>
+                    </svg>
+                    <h1
+                        class="text-3xl md:text-4xl font-bold bg-gradient-to-r from-travel-coral to-travel-sunset bg-clip-text text-transparent mb-2"
+                    >
+                        Reise Erinnerungen
+                    </h1>
+                    <p class="text-gray-600">Passwort eingeben, um Fotobücher anzusehen</p>
+                </div>
+                <input
+                    type="password"
+                    id="password-input"
+                    placeholder="Passwort"
+                    autocomplete="off"
+                    class="w-full px-4 py-3 mb-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                />
+                <button
+                    id="login-btn"
+                    onclick="checkPassword()"
+                    class="w-full bg-gradient-to-r from-travel-coral to-travel-sunset text-white py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                >
+                    Anmelden
+                </button>
+                <p id="login-error" class="text-red-500 mt-4 text-sm min-h-[20px]"></p>
+            </div>
+        </div>
+
+        <div id="main-content" class="hidden min-h-screen py-8 px-4">
+            <div class="max-w-7xl mx-auto">
+                <header
+                    class="bg-white rounded-2xl shadow-lg p-6 mb-8 flex items-center justify-between flex-wrap gap-4"
+                >
+                    <div class="flex items-center gap-3">
+                        <svg class="w-8 h-8 text-travel-coral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                            ></path>
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                            ></path>
+                        </svg>
+                        <h1
+                            class="text-3xl font-bold bg-gradient-to-r from-travel-coral to-travel-sunset bg-clip-text text-transparent"
+                        >
+                            Reise Fotobücher
+                        </h1>
+                    </div>
+                    <a
+                        href="admin.html"
+                        id="admin-link"
+                        style="display: none"
+                        class="bg-gradient-to-r from-travel-teal to-travel-ocean text-white px-6 py-2 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                        Verwaltung
+                    </a>
+                </header>
+
+                <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+                    <div class="flex border-b border-gray-200 mb-6">
+                        <button
+                            id="tab-chronological"
+                            class="tab-btn px-6 py-3 font-semibold text-gray-600 hover:text-travel-coral transition-colors border-b-2 border-transparent hover:border-travel-coral"
+                        >
+                            Chronologisch
+                        </button>
+                        <button
+                            id="tab-map"
+                            class="tab-btn px-6 py-3 font-semibold text-gray-600 hover:text-travel-coral transition-colors border-b-2 border-transparent hover:border-travel-coral"
+                        >
+                            Karte
+                        </button>
+                    </div>
+
+                    <div id="tab-content-chronological" class="tab-content">
+                        <div
+                            id="photobooks-list"
+                            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                        >
+                            <!-- Photobooks will be dynamically loaded here -->
+                        </div>
+                        <div id="empty-state" class="hidden text-center py-16">
+                            <svg
+                                class="w-24 h-24 mx-auto mb-4 text-gray-300"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                                ></path>
+                            </svg>
+                            <p class="text-gray-500 text-lg">Noch keine Fotobücher verfügbar.</p>
+                        </div>
+                    </div>
+
+                    <div id="tab-content-map" class="tab-content hidden">
+                        <div
+                            id="map-container"
+                            class="w-full h-[600px] rounded-lg overflow-hidden border-2 border-gray-200"
+                        >
+                            <!-- Map will be rendered here -->
+                        </div>
+                        <div id="map-empty-state" class="hidden text-center py-16">
+                            <svg
+                                class="w-24 h-24 mx-auto mb-4 text-gray-300"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                                ></path>
+                            </svg>
+                            <p class="text-gray-500 text-lg">Keine Fotobücher mit Ortsangabe verfügbar.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+        <script src="firebase-config.js"></script>
+        <script src="auth.js"></script>
+        <script src="photobooks.js"></script>
+        <script src="main.js"></script>
+    </body>
+</html>

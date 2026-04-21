@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migrate Photobooks</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .error {
+            background: #ffebee;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Migrate Existing Photobooks</h1>
+        <p>This will add the <code>availableToFriends</code> field (set to <code>false</code>) to all existing photobooks that don't have it.</p>
+        <button id="migrate-btn" onclick="migratePhotobooks()">Migrate Photobooks</button>
+        <div id="status"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script>
+        async function migratePhotobooks() {
+            const btn = document.getElementById("migrate-btn");
+            const status = document.getElementById("status");
+
+            btn.disabled = true;
+            btn.textContent = "Migrating...";
+            status.innerHTML = "";
+
+            try {
+                const snapshot = await db.collection("photobooks").get();
+                let updated = 0;
+                let skipped = 0;
+
+                const batch = db.batch();
+                let batchCount = 0;
+
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.availableToFriends === undefined) {
+                        batch.update(doc.ref, { availableToFriends: false });
+                        updated++;
+                        batchCount++;
+
+                        if (batchCount >= 500) {
+                            await batch.commit();
+                            batchCount = 0;
+                        }
+                    } else {
+                        skipped++;
+                    }
+                });
+
+                if (batchCount > 0) {
+                    await batch.commit();
+                }
+
+                status.className = "status";
+                status.innerHTML = `
+                    <strong>Migration complete!</strong><br>
+                    Updated: ${updated} photobooks<br>
+                    Skipped: ${skipped} photobooks (already had the field)
+                `;
+            } catch (error) {
+                status.className = "status error";
+                status.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                console.error(error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Migrate Photobooks";
+            }
+        }
+    </script>
+</body>
+</html>
+

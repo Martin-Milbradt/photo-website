@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="coralGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF6B6B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF8C42;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="6" fill="url(#coralGradient)"/>
+  <path d="M8 10a2 2 0 0 1 2-2h2.93a2 2 0 0 1 1.664-.89l.812-1.22A2 2 0 0 1 17.07 5h2.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 1 23.07 8H25a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V10z" fill="white" opacity="0.95"/>
+  <circle cx="16" cy="16" r="4" fill="url(#coralGradient)"/>
+  <circle cx="16" cy="16" r="2" fill="white"/>
+</svg>
+

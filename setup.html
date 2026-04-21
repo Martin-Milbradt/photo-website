@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Setup - Passwörter einrichten</title>
+        <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+        <link rel="stylesheet" href="dist/output.css" />
+    </head>
+    <body class="bg-gradient-to-br from-travel-ocean via-travel-teal to-travel-sand min-h-screen">
+        <div class="flex items-center justify-center min-h-screen px-4">
+            <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-12 max-w-md w-full">
+                <h1
+                    class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-travel-coral to-travel-sunset bg-clip-text text-transparent mb-4 text-center"
+                >
+                    Einmaliges Setup
+                </h1>
+                <p id="status" class="mb-6 text-center text-gray-600">Prüfe Konfiguration...</p>
+                <form id="setup-form" class="hidden space-y-4">
+                    <div>
+                        <label for="viewer-password" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Betrachter-Passwort (Familie)
+                        </label>
+                        <input
+                            type="password"
+                            id="viewer-password"
+                            required
+                            autocomplete="new-password"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                    </div>
+                    <div>
+                        <label for="admin-password" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Admin-Passwort
+                        </label>
+                        <input
+                            type="password"
+                            id="admin-password"
+                            required
+                            autocomplete="new-password"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                    </div>
+                    <div>
+                        <label for="friends-password" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Freunde-Passwort
+                        </label>
+                        <input
+                            type="password"
+                            id="friends-password"
+                            required
+                            autocomplete="new-password"
+                            class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-travel-teal transition-colors"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        id="setup-submit"
+                        class="w-full bg-gradient-to-r from-travel-coral to-travel-sunset text-white py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                    >
+                        Passwörter speichern
+                    </button>
+                    <p id="setup-error" class="text-red-500 text-sm min-h-[20px]"></p>
+                </form>
+            </div>
+        </div>
+
+        <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+        <script src="firebase-config.js"></script>
+        <script src="auth.js"></script>
+        <script>
+            (async function () {
+                const status = document.getElementById("status");
+                const form = document.getElementById("setup-form");
+                const submitBtn = document.getElementById("setup-submit");
+                const errorEl = document.getElementById("setup-error");
+
+                const existing = await loadAuthConfig();
+                if (existing) {
+                    status.textContent =
+                        "Passwörter sind bereits konfiguriert. Um sie zu ändern, bearbeiten Sie das Dokument 'config/auth' direkt in der Firebase Console.";
+                    return;
+                }
+                status.textContent =
+                    "Legen Sie die drei Passwörter fest. Diese Seite funktioniert nur, solange noch keine Konfiguration existiert.";
+                form.classList.remove("hidden");
+
+                form.addEventListener("submit", async function (e) {
+                    e.preventDefault();
+                    errorEl.textContent = "";
+
+                    const viewer = document.getElementById("viewer-password").value.trim();
+                    const admin = document.getElementById("admin-password").value.trim();
+                    const friends = document.getElementById("friends-password").value.trim();
+
+                    if (!viewer || !admin || !friends) {
+                        errorEl.textContent = "Bitte alle Felder ausfüllen.";
+                        return;
+                    }
+
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = "Wird gespeichert...";
+
+                    try {
+                        const [viewerHash, adminHash, friendsHash] = await Promise.all([
+                            hashPassword(viewer),
+                            hashPassword(admin),
+                            hashPassword(friends),
+                        ]);
+
+                        await db.collection("config").doc("auth").set({
+                            viewerHash: viewerHash,
+                            adminHash: adminHash,
+                            friendsHash: friendsHash,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        });
+
+                        form.classList.add("hidden");
+                        status.textContent =
+                            "Passwörter gespeichert. Sie können jetzt zur Startseite zurückkehren.";
+                    } catch (error) {
+                        console.error(error);
+                        errorEl.textContent = `Fehler beim Speichern: ${error.message}`;
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = "Passwörter speichern";
+                    }
+                });
+            })();
+        </script>
+    </body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "dependencies": {
+    "firebase": "^12.7.0"
+  },
+  "name": "photo-website",
+  "version": "1.0.0",
+  "description": "A simple, password-protected website for hosting and sharing PosterXXL photobooks with family and friends.",
+  "main": "main.js",
+  "scripts": {
+    "build-css": "tailwindcss -i ./src/input.css -o ./dist/output.css --minify",
+    "watch-css": "tailwindcss -i ./src/input.css -o ./dist/output.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Martin-Milbradt/photo-website.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Martin-Milbradt/photo-website/issues"
+  },
+  "homepage": "https://github.com/Martin-Milbradt/photo-website#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "eslint": "^9.39.2",
+    "globals": "^16.5.0",
+    "tailwindcss": "^3.4.19"
+  }
+}
