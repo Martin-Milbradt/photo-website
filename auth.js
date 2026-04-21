@@ -96,21 +96,43 @@ async function clearLocalSession() {
     }
 }
 
-async function attemptLogin(password) {
+async function restoreSession(oldSession) {
+    if (!oldSession) return;
+    const user = firebase.auth().currentUser;
+    if (!user) return;
+    try {
+        await db.collection(SESSIONS_COLLECTION).doc(user.uid).set({
+            role: oldSession.role,
+            hash: oldSession.hash,
+            createdAt: oldSession.createdAt || firebase.firestore.FieldValue.serverTimestamp(),
+        });
+    } catch (error) {
+        console.error("Failed to restore previous session:", error);
+    }
+}
+
+const ROLE_SALT_KEYS = {
+    admin: "adminSalt",
+    friends: "friendsSalt",
+    family: "viewerSalt",
+};
+
+async function attemptLogin(password, allowedRoles) {
     await ensureAnonymousAuth();
+    const previousSession = await fetchSession();
     await clearLocalSession();
 
     const salts = await loadAuthSalts();
-    if (!salts) return { error: "missing-config" };
+    if (!salts) {
+        await restoreSession(previousSession);
+        return { error: "missing-config" };
+    }
 
     const user = firebase.auth().currentUser;
-    const attempts = [
-        { role: "admin", saltKey: "adminSalt" },
-        { role: "friends", saltKey: "friendsSalt" },
-        { role: "family", saltKey: "viewerSalt" },
-    ];
+    const rolesToTry = allowedRoles || ["admin", "friends", "family"];
 
-    for (const { role, saltKey } of attempts) {
+    for (const role of rolesToTry) {
+        const saltKey = ROLE_SALT_KEYS[role];
         const salt = salts[saltKey];
         if (!salt) continue;
         const hash = await derivePasswordHash(password, salt);
@@ -123,10 +145,13 @@ async function attemptLogin(password) {
             return { role: role };
         } catch (error) {
             if (error.code !== "permission-denied") {
+                await restoreSession(previousSession);
                 return { error: error.message || String(error) };
             }
         }
     }
+
+    await restoreSession(previousSession);
     return { error: "invalid-password" };
 }
 
@@ -252,9 +277,8 @@ async function checkAdminPassword() {
 
     errorMsg.textContent = "Wird überprüft...";
 
-    const result = await attemptLogin(password);
+    const result = await attemptLogin(password, ["admin"]);
     if (result.role !== "admin") {
-        await clearLocalSession();
         errorMsg.textContent =
             result.error === "missing-config"
                 ? "Auth-Konfiguration fehlt. Bitte zuerst setup.html aufrufen."
@@ -301,7 +325,9 @@ document.addEventListener("DOMContentLoaded", function () {
             applyRoleToUi(session.role);
 
             if (isAdminPage && session.role !== "admin") {
-                window.location.href = "index.html";
+                // Non-admin session on the admin page: leave the login screen
+                // visible so the user can enter the admin password to upgrade,
+                // instead of redirecting them away.
                 return;
             }
 
