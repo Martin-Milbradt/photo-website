@@ -1,5 +1,30 @@
 const PHOTOBOOKS_COLLECTION = "photobooks";
 
+// eslint-disable-next-line no-unused-vars
+async function geocodeLocation(location) {
+    // Nominatim enforces 1 req/sec per IP. Callers must throttle batch usage.
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`
+        );
+        if (!response.ok) {
+            console.error(`Geocoding HTTP ${response.status} for "${location}"`);
+            return null;
+        }
+        const data = await response.json();
+        if (data && data.length > 0) {
+            return {
+                lat: parseFloat(data[0].lat),
+                lon: parseFloat(data[0].lon),
+            };
+        }
+        return null;
+    } catch (error) {
+        console.error("Error geocoding location:", error);
+        return null;
+    }
+}
+
 function parseDateForSorting(dateString) {
     const [month, year] = dateString.split(".");
     return parseInt(year) * 100 + parseInt(month);
@@ -68,7 +93,7 @@ async function getPhotobooks() {
 }
 
 // eslint-disable-next-line no-unused-vars
-async function addPhotobook(title, url, date, availableToFriends = false, imageUrl = null, ort = null) {
+async function addPhotobook(title, url, date, availableToFriends = false, imageUrl = null, ort = null, coords = null) {
     try {
         const sortDate = parseDateForSorting(date);
         const data = {
@@ -84,6 +109,10 @@ async function addPhotobook(title, url, date, availableToFriends = false, imageU
         }
         if (ort && ort.trim()) {
             data.ort = ort.trim();
+        }
+        if (coords && typeof coords.lat === "number" && typeof coords.lon === "number") {
+            data.lat = coords.lat;
+            data.lon = coords.lon;
         }
         const docRef = await db.collection(PHOTOBOOKS_COLLECTION).add(data);
         return docRef.id;

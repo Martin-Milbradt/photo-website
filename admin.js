@@ -2,6 +2,7 @@
 let unsubscribeAdminPhotobooks = null;
 let renderPhotobooksListFn = null;
 let editingPhotobookId = null;
+let editingPhotobook = null;
 
 function renderPhotobooksList(photobooks) {
     const container = document.getElementById("photobooks-list");
@@ -90,10 +91,12 @@ async function loadAdminPage() {
         }
 
         submitBtn.disabled = true;
-        submitBtn.textContent = "Wird hinzugefügt...";
+        submitBtn.textContent = ort ? "Ort wird geokodiert..." : "Wird hinzugefügt...";
 
         try {
-            await addPhotobook(title, widgetviewerUrl, date, availableToFriends, imageUrl || null, ort || null);
+            const coords = ort ? await geocodeLocation(ort) : null;
+            submitBtn.textContent = "Wird hinzugefügt...";
+            await addPhotobook(title, widgetviewerUrl, date, availableToFriends, imageUrl || null, ort || null, coords);
             document.getElementById("photobook-title").value = "";
             document.getElementById("photobook-date").value = "";
             document.getElementById("photobook-url").value = "";
@@ -163,6 +166,7 @@ async function editPhotobook(id) {
         }
 
         editingPhotobookId = id;
+        editingPhotobook = photobook;
         document.getElementById("edit-photobook-title").value = photobook.title || "";
         document.getElementById("edit-photobook-date").value = photobook.date || "";
         document.getElementById("edit-photobook-url").value = photobook.url || "";
@@ -179,6 +183,7 @@ async function editPhotobook(id) {
 
 function closeEditModal() {
     editingPhotobookId = null;
+    editingPhotobook = null;
     const modal = document.getElementById("edit-modal");
     modal.classList.add("hidden");
     document.getElementById("edit-photobook-form").reset();
@@ -254,10 +259,31 @@ async function savePhotobookEdit() {
             updates.imageUrl = firebase.firestore.FieldValue.delete();
         }
 
-        if (ort.trim()) {
-            updates.ort = ort.trim();
+        const trimmedOrt = ort.trim();
+        const previousOrt = (editingPhotobook?.ort || "").trim();
+        const previousLat = editingPhotobook?.lat;
+        const previousLon = editingPhotobook?.lon;
+
+        if (trimmedOrt) {
+            updates.ort = trimmedOrt;
+            const ortChanged = trimmedOrt !== previousOrt;
+            const hasCoords = typeof previousLat === "number" && typeof previousLon === "number";
+            if (ortChanged || !hasCoords) {
+                submitBtn.textContent = "Ort wird geokodiert...";
+                const coords = await geocodeLocation(trimmedOrt);
+                submitBtn.textContent = "Wird gespeichert...";
+                if (coords) {
+                    updates.lat = coords.lat;
+                    updates.lon = coords.lon;
+                } else {
+                    updates.lat = firebase.firestore.FieldValue.delete();
+                    updates.lon = firebase.firestore.FieldValue.delete();
+                }
+            }
         } else {
             updates.ort = firebase.firestore.FieldValue.delete();
+            updates.lat = firebase.firestore.FieldValue.delete();
+            updates.lon = firebase.firestore.FieldValue.delete();
         }
 
         await updatePhotobook(editingPhotobookId, updates);
@@ -276,6 +302,50 @@ async function savePhotobookEdit() {
         submitBtn.disabled = false;
         submitBtn.textContent = "Speichern";
     }
+}
+
+// eslint-disable-next-line no-unused-vars
+async function backfillMapCoords() {
+    const btn = document.getElementById("backfill-coords-btn");
+    const status = document.getElementById("backfill-coords-status");
+
+    const photobooks = await getPhotobooks();
+    const needsCoords = photobooks.filter(
+        (p) => p.ort && p.ort.trim() && (typeof p.lat !== "number" || typeof p.lon !== "number")
+    );
+
+    if (needsCoords.length === 0) {
+        status.textContent = "Alle Fotobücher mit Ort haben bereits Koordinaten.";
+        return;
+    }
+
+    btn.disabled = true;
+    let success = 0;
+    let failed = 0;
+
+    for (let i = 0; i < needsCoords.length; i++) {
+        const pb = needsCoords[i];
+        status.textContent = `${i + 1}/${needsCoords.length}: ${pb.title}...`;
+        const coords = await geocodeLocation(pb.ort);
+        if (coords) {
+            try {
+                await updatePhotobook(pb.id, { lat: coords.lat, lon: coords.lon });
+                success++;
+            } catch (error) {
+                console.error("Failed to save coords for", pb.title, error);
+                failed++;
+            }
+        } else {
+            failed++;
+        }
+        // Nominatim allows 1 req/sec. Use 1.5s to stay comfortably below.
+        if (i < needsCoords.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+        }
+    }
+
+    btn.disabled = false;
+    status.textContent = `Fertig. ${success} aktualisiert, ${failed} fehlgeschlagen.`;
 }
 
 function escapeHtml(text) {

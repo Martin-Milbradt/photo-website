@@ -51,31 +51,22 @@ function initMap() {
     }).addTo(map);
 }
 
-async function geocodeLocation(location) {
-    try {
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`,
-            {
-                headers: {
-                    "User-Agent": "Photo-Website/1.0",
-                },
-            }
-        );
-        const data = await response.json();
-        if (data && data.length > 0) {
-            return {
-                lat: parseFloat(data[0].lat),
-                lon: parseFloat(data[0].lon),
-            };
-        }
-        return null;
-    } catch (error) {
-        console.error("Error geocoding location:", error);
-        return null;
-    }
+function addPhotobookMarker(photobook) {
+    const marker = L.marker([photobook.lat, photobook.lon]).addTo(map);
+    marker.bindPopup(`
+        <div class="text-center">
+            <h3 class="font-bold text-lg mb-1">${escapeHtml(photobook.title)}</h3>
+            ${photobook.date ? `<p class="text-sm text-gray-600 mb-2">${escapeHtml(photobook.date)}</p>` : ""}
+            <p class="text-sm text-gray-600 mb-2">${escapeHtml(photobook.ort)}</p>
+            <a href="photobook.html?id=${photobook.id}" class="inline-block bg-travel-coral text-white px-4 py-2 rounded-lg hover:bg-travel-sunset transition-colors">
+                Fotobuch ansehen
+            </a>
+        </div>
+    `);
+    return marker;
 }
 
-async function renderMap(photobooks) {
+function renderMap(photobooks) {
     const mapContent = document.getElementById("tab-content-map");
     if (mapContent.classList.contains("hidden")) {
         return;
@@ -88,12 +79,14 @@ async function renderMap(photobooks) {
         filteredPhotobooks = photobooks.filter((p) => p.availableToFriends === true);
     }
 
-    const photobooksWithOrt = filteredPhotobooks.filter((p) => p.ort && p.ort.trim());
+    const photobooksWithCoords = filteredPhotobooks.filter(
+        (p) => p.ort && p.ort.trim() && typeof p.lat === "number" && typeof p.lon === "number"
+    );
 
     const mapEmptyState = document.getElementById("map-empty-state");
     const mapContainer = document.getElementById("map-container");
 
-    if (photobooksWithOrt.length === 0) {
+    if (photobooksWithCoords.length === 0) {
         if (map) {
             mapContainer.classList.add("hidden");
         }
@@ -114,26 +107,9 @@ async function renderMap(photobooks) {
     mapMarkers = [];
 
     const bounds = [];
-
-    for (const photobook of photobooksWithOrt) {
-        const coords = await geocodeLocation(photobook.ort);
-        if (coords) {
-            bounds.push([coords.lat, coords.lon]);
-            const marker = L.marker([coords.lat, coords.lon]).addTo(map);
-            marker.bindPopup(`
-                <div class="text-center">
-                    <h3 class="font-bold text-lg mb-1">${escapeHtml(photobook.title)}</h3>
-                    ${photobook.date ? `<p class="text-sm text-gray-600 mb-2">${escapeHtml(photobook.date)}</p>` : ""}
-                    <p class="text-sm text-gray-600 mb-2">${escapeHtml(photobook.ort)}</p>
-                    <a href="photobook.html?id=${
-                        photobook.id
-                    }" class="inline-block bg-travel-coral text-white px-4 py-2 rounded-lg hover:bg-travel-sunset transition-colors">
-                        Fotobuch ansehen
-                    </a>
-                </div>
-            `);
-            mapMarkers.push(marker);
-        }
+    for (const photobook of photobooksWithCoords) {
+        bounds.push([photobook.lat, photobook.lon]);
+        mapMarkers.push(addPhotobookMarker(photobook));
     }
 
     if (bounds.length > 0) {

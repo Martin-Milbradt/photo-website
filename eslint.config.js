@@ -37,6 +37,7 @@ module.exports = [
                 convertToWidgetviewerUrl: "readonly",
                 extractUrlFromInput: "readonly",
                 isValidPhotobookUrl: "readonly",
+                geocodeLocation: "readonly",
                 // Functions from main.js (loaded via script tags)
                 loadPhotobooks: "readonly",
                 // Functions from photobook-viewer.js (loaded via script tags)
@@ -49,6 +50,7 @@ module.exports = [
                 closeEditModal: "readonly",
                 savePhotobookEdit: "readonly",
                 editPhotobook: "readonly",
+                backfillMapCoords: "readonly",
             },
         },
         rules: {
