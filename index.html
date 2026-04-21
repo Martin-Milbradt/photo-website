@@ -6,6 +6,18 @@
         <title>Reise Fotobücher</title>
         <link rel="icon" type="image/svg+xml" href="favicon.svg" />
         <link rel="stylesheet" href="dist/output.css" />
+        <style>
+            html.pre-authed #login-screen { display: none !important; }
+            html.pre-authed #main-content { display: block !important; }
+        </style>
+        <script>
+            (function () {
+                var c = document.cookie;
+                if (c.indexOf("authenticated=true") === -1) return;
+                if (location.pathname.indexOf("admin.html") !== -1 && c.indexOf("isAdmin=true") === -1) return;
+                document.documentElement.classList.add("pre-authed");
+            })();
+        </script>
     </head>
     <body class="bg-gradient-to-br from-travel-ocean via-travel-teal to-travel-sand min-h-screen">
         <div id="login-screen" class="flex items-center justify-center min-h-screen px-4">

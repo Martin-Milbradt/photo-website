@@ -297,6 +297,9 @@ async function checkAdminPassword() {
 }
 
 function setAuthUi(showMain, loginScreen, mainContent) {
+    // Drop the `pre-authed` class set synchronously in <head>, so that from
+    // here on the Tailwind `hidden` toggling below is the source of truth.
+    document.documentElement.classList.remove("pre-authed");
     if (!loginScreen || !mainContent) return;
     if (showMain) {
         loginScreen.classList.add("hidden");

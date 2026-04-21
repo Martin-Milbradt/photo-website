@@ -17,3 +17,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 // eslint-disable-next-line no-unused-vars
 const db = firebase.firestore();
+// Offline persistence keeps Firestore data in IndexedDB and serves onSnapshot
+// listeners from cache first, then streams deltas from the server. This gives
+// instant renders on return visits and only fetches what actually changed.
+// `failed-precondition` fires if multiple tabs are open without sync; handled
+// by `synchronizeTabs`. `unimplemented` fires on browsers without IndexedDB
+// (e.g. Safari private mode); the app still works, just without the cache.
+db.enablePersistence({ synchronizeTabs: true }).catch((error) => {
+    console.warn("Firestore offline persistence not available:", error.code || error.message || error);
+});

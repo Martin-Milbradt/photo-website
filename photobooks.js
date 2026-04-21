@@ -157,7 +157,7 @@ async function getPhotobookById(id) {
 }
 
 // eslint-disable-next-line no-unused-vars
-function subscribeToPhotobooks(callback) {
+function subscribeToPhotobooks(callback, onError) {
     return db.collection(PHOTOBOOKS_COLLECTION).onSnapshot(
         (snapshot) => {
             let photobooks = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
@@ -174,7 +174,11 @@ function subscribeToPhotobooks(callback) {
         },
         (error) => {
             console.error("Error subscribing to photobooks:", error);
-            callback([]);
+            if (typeof onError === "function") {
+                onError(error);
+            } else {
+                callback([]);
+            }
         }
     );
 }

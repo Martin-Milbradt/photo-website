@@ -50,7 +50,6 @@ module.exports = [
                 closeEditModal: "readonly",
                 savePhotobookEdit: "readonly",
                 editPhotobook: "readonly",
-                backfillMapCoords: "readonly",
             },
         },
         rules: {

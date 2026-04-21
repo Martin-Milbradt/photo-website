@@ -113,18 +113,10 @@ async function loadAdminPage() {
         }
     });
 
-    try {
-        const photobooks = await getPhotobooks();
-        renderPhotobooksList(photobooks);
-
-        if (typeof subscribeToPhotobooks === "function") {
-            unsubscribeAdminPhotobooks = subscribeToPhotobooks(renderPhotobooksList);
-        }
-    } catch (error) {
-        console.error("Error loading photobooks:", error);
+    unsubscribeAdminPhotobooks = subscribeToPhotobooks(renderPhotobooksList, () => {
         document.getElementById("photobooks-list").innerHTML =
             '<div class="text-center py-12"><div class="inline-flex items-center gap-2 text-red-500"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg><span>Fehler beim Laden der Fotobücher. Bitte Seite aktualisieren.</span></div></div>';
-    }
+    });
 }
 
 // eslint-disable-next-line no-unused-vars
@@ -143,17 +135,9 @@ async function deletePhotobookById(id) {
 async function toggleFriendsVisibility(id, availableToFriends) {
     try {
         await updatePhotobook(id, { availableToFriends: availableToFriends });
-        const photobooks = await getPhotobooks();
-        if (renderPhotobooksListFn) {
-            renderPhotobooksListFn(photobooks);
-        }
     } catch (error) {
         alert("Fehler beim Aktualisieren des Fotobuchs. Bitte erneut versuchen.");
         console.error(error);
-        const photobooks = await getPhotobooks();
-        if (renderPhotobooksListFn) {
-            renderPhotobooksListFn(photobooks);
-        }
     }
 }
 
@@ -288,12 +272,6 @@ async function savePhotobookEdit() {
 
         await updatePhotobook(editingPhotobookId, updates);
         closeEditModal();
-
-        const photobooks = await getPhotobooks();
-        if (renderPhotobooksListFn) {
-            renderPhotobooksListFn(photobooks);
-        }
-
         alert("Fotobuch erfolgreich aktualisiert!");
     } catch (error) {
         alert("Fehler beim Aktualisieren des Fotobuchs. Bitte erneut versuchen.");
@@ -302,50 +280,6 @@ async function savePhotobookEdit() {
         submitBtn.disabled = false;
         submitBtn.textContent = "Speichern";
     }
-}
-
-// eslint-disable-next-line no-unused-vars
-async function backfillMapCoords() {
-    const btn = document.getElementById("backfill-coords-btn");
-    const status = document.getElementById("backfill-coords-status");
-
-    const photobooks = await getPhotobooks();
-    const needsCoords = photobooks.filter(
-        (p) => p.ort && p.ort.trim() && (typeof p.lat !== "number" || typeof p.lon !== "number")
-    );
-
-    if (needsCoords.length === 0) {
-        status.textContent = "Alle Fotobücher mit Ort haben bereits Koordinaten.";
-        return;
-    }
-
-    btn.disabled = true;
-    let success = 0;
-    let failed = 0;
-
-    for (let i = 0; i < needsCoords.length; i++) {
-        const pb = needsCoords[i];
-        status.textContent = `${i + 1}/${needsCoords.length}: ${pb.title}...`;
-        const coords = await geocodeLocation(pb.ort);
-        if (coords) {
-            try {
-                await updatePhotobook(pb.id, { lat: coords.lat, lon: coords.lon });
-                success++;
-            } catch (error) {
-                console.error("Failed to save coords for", pb.title, error);
-                failed++;
-            }
-        } else {
-            failed++;
-        }
-        // Nominatim allows 1 req/sec. Use 1.5s to stay comfortably below.
-        if (i < needsCoords.length - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-        }
-    }
-
-    btn.disabled = false;
-    status.textContent = `Fertig. ${success} aktualisiert, ${failed} fehlgeschlagen.`;
 }
 
 function escapeHtml(text) {
