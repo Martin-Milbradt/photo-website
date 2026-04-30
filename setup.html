@@ -69,10 +69,17 @@
         <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
         <script src="firebase-config.js"></script>
+        <script type="module" src="firebase-auth-init.js"></script>
         <script src="auth.js"></script>
         <script>
-            (async function () {
-                const status = document.getElementById("status");
+            // Wrapped in DOMContentLoaded so this runs AFTER firebase-auth-init.js
+            // (a deferred module script) has pre-initialized auth without the
+            // popup redirect resolver. Otherwise the first Firestore call below
+            // would lazy-init auth with the default resolver and load the
+            // cross-origin iframe Safari blocks under ITP.
+            document.addEventListener("DOMContentLoaded", function () {
+                (async function () {
+                    const status = document.getElementById("status");
                 const form = document.getElementById("setup-form");
                 const submitBtn = document.getElementById("setup-submit");
                 const errorEl = document.getElementById("setup-error");
@@ -155,7 +162,8 @@
                         submitBtn.textContent = "Passwörter speichern";
                     }
                 });
-            })();
+                })();
+            });
         </script>
     </body>
 </html>
