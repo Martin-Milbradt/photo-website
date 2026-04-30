@@ -70,4 +70,10 @@ module.exports = [
             },
         },
     },
+    {
+        files: ["firebase-auth-init.js"],
+        languageOptions: {
+            sourceType: "module",
+        },
+    },
 ];
