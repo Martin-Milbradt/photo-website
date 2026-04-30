@@ -17,6 +17,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 // eslint-disable-next-line no-unused-vars
 const db = firebase.firestore();
+// Restrictive in-app WebViews (notably Telegram on iOS) drop the streaming
+// WebChannel connection Firestore uses by default, leaving .get() requests
+// stuck pending forever. Auto-detect falls back to long-polling on those
+// transports without penalising browsers where streaming works.
+db.settings({
+    experimentalAutoDetectLongPolling: true,
+});
 // Offline persistence keeps Firestore data in IndexedDB and serves onSnapshot
 // listeners from cache first, then streams deltas from the server. This gives
 // instant renders on return visits and only fetches what actually changed.
