@@ -24,6 +24,12 @@ const db = firebase.firestore();
 db.settings({
     experimentalAutoDetectLongPolling: true,
 });
+// When ?debug=1 is set (see debug.js), surface the underlying transport /
+// auth handshake events so we can see what's stalling in the eruda overlay.
+if (window.__DEBUG && firebase.firestore.setLogLevel) {
+    firebase.firestore.setLogLevel("debug");
+    console.log("[debug] Firestore verbose logging enabled");
+}
 // Offline persistence keeps Firestore data in IndexedDB and serves onSnapshot
 // listeners from cache first, then streams deltas from the server. This gives
 // instant renders on return visits and only fetches what actually changed.
