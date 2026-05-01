@@ -17,15 +17,8 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 // eslint-disable-next-line no-unused-vars
 const db = firebase.firestore();
-// Restrictive in-app WebViews (notably Telegram on iOS) drop the streaming
-// WebChannel connection Firestore uses by default, leaving .get() requests
-// stuck pending forever. Auto-detect falls back to long-polling on those
-// transports without penalising browsers where streaming works.
-db.settings({
-    experimentalAutoDetectLongPolling: true,
-});
-// When ?debug=1 is set (see debug.js), surface the underlying transport /
-// auth handshake events so we can see what's stalling in the eruda overlay.
+// When ?debug=1 is set (see debug.js), surface Firestore's transport / auth
+// handshake events so we can see what's happening in the eruda overlay.
 if (window.__DEBUG && firebase.firestore.setLogLevel) {
     firebase.firestore.setLogLevel("debug");
     console.log("[debug] Firestore verbose logging enabled");
@@ -39,15 +32,13 @@ if (window.__DEBUG && firebase.firestore.setLogLevel) {
 // the previous page open during in-app navigation, so the new page hangs
 // forever inside `updateClientMetadataAndTryBecomePrimary` waiting to write
 // its client metadata. UA detection is unreliable - modern Telegram on iOS
-// sends a User-Agent that is byte-identical to Mobile Safari - so we
-// fingerprint the runtime instead: WKWebView exposes `window.webkit.message
-// Handlers` for the native bridge, real Mobile Safari does not expose a
-// `window.webkit` namespace at all.
+// sends a User-Agent byte-identical to Mobile Safari - so we fingerprint the
+// runtime instead: WKWebView exposes `window.webkit.messageHandlers` for the
+// native bridge, real Mobile Safari does not expose a `window.webkit`
+// namespace at all.
 //
-// `failed-precondition` would fire if persistence is already enabled by
-// another client in the same origin; `unimplemented` fires on browsers
-// without IndexedDB (e.g. Safari private mode). Both are harmless - we keep
-// working with network-only reads.
+// The `.catch` handles `unimplemented` on browsers without IndexedDB (e.g.
+// Safari private mode); the app still works, just without the cache.
 const isWKWebView = !!window.webkit?.messageHandlers;
 if (!isWKWebView) {
     db.enablePersistence().catch((error) => {
