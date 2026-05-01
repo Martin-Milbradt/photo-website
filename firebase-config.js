@@ -38,22 +38,21 @@ if (window.__DEBUG && firebase.firestore.setLogLevel) {
 // Instagram, etc.). On those, WKWebView holds the IndexedDB connection from
 // the previous page open during in-app navigation, so the new page hangs
 // forever inside `updateClientMetadataAndTryBecomePrimary` waiting to write
-// its client metadata. Real Mobile Safari sends both `Safari/` and `Version/`
-// in its User-Agent; in-app WebViews are missing one or both. Network reads
-// are still cheap (~100-300 ms) and the localStorage prerender for the
-// photobook list keeps the index page instant on return visits.
+// its client metadata. UA detection is unreliable - modern Telegram on iOS
+// sends a User-Agent that is byte-identical to Mobile Safari - so we
+// fingerprint the runtime instead: WKWebView exposes `window.webkit.message
+// Handlers` for the native bridge, real Mobile Safari does not expose a
+// `window.webkit` namespace at all.
 //
-// `failed-precondition` fires if persistence is already enabled by another
-// client in the same origin; `unimplemented` fires on browsers without
-// IndexedDB (e.g. Safari private mode). Both are harmless - we keep working
-// with network-only reads.
-const ua = navigator.userAgent;
-const isIOSInAppWebView =
-    /iPhone|iPad|iPod/.test(ua) && (!/Safari\//.test(ua) || !/Version\//.test(ua));
-if (!isIOSInAppWebView) {
+// `failed-precondition` would fire if persistence is already enabled by
+// another client in the same origin; `unimplemented` fires on browsers
+// without IndexedDB (e.g. Safari private mode). Both are harmless - we keep
+// working with network-only reads.
+const isWKWebView = !!window.webkit?.messageHandlers;
+if (!isWKWebView) {
     db.enablePersistence().catch((error) => {
         console.warn("Firestore offline persistence not available:", error.code || error.message || error);
     });
 } else if (window.__DEBUG) {
-    console.log("[debug] iOS in-app WebView detected, skipping Firestore persistence");
+    console.log("[debug] WKWebView detected, skipping Firestore persistence");
 }
