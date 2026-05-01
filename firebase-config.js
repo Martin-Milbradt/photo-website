@@ -33,9 +33,15 @@ if (window.__DEBUG && firebase.firestore.setLogLevel) {
 // Offline persistence keeps Firestore data in IndexedDB and serves onSnapshot
 // listeners from cache first, then streams deltas from the server. This gives
 // instant renders on return visits and only fetches what actually changed.
-// `failed-precondition` fires if multiple tabs are open without sync; handled
-// by `synchronizeTabs`. `unimplemented` fires on browsers without IndexedDB
-// (e.g. Safari private mode); the app still works, just without the cache.
-db.enablePersistence({ synchronizeTabs: true }).catch((error) => {
+// `failed-precondition` fires if a previous client in the same origin still
+// holds the persistence lease - typically during in-WebView navigation in
+// Telegram on iOS, where WKWebView does not fire `pagehide` reliably so the
+// outgoing page never releases its lease. The new page silently falls back
+// to network-only reads, which is the right behaviour: the alternative,
+// `synchronizeTabs: true`, would block forever inside
+// `updateClientMetadataAndTryBecomePrimary` waiting to take the lease over.
+// `unimplemented` fires on browsers without IndexedDB (e.g. Safari private
+// mode); same harmless fallback.
+db.enablePersistence().catch((error) => {
     console.warn("Firestore offline persistence not available:", error.code || error.message || error);
 });
