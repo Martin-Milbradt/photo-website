@@ -33,15 +33,27 @@ if (window.__DEBUG && firebase.firestore.setLogLevel) {
 // Offline persistence keeps Firestore data in IndexedDB and serves onSnapshot
 // listeners from cache first, then streams deltas from the server. This gives
 // instant renders on return visits and only fetches what actually changed.
-// `failed-precondition` fires if a previous client in the same origin still
-// holds the persistence lease - typically during in-WebView navigation in
-// Telegram on iOS, where WKWebView does not fire `pagehide` reliably so the
-// outgoing page never releases its lease. The new page silently falls back
-// to network-only reads, which is the right behaviour: the alternative,
-// `synchronizeTabs: true`, would block forever inside
-// `updateClientMetadataAndTryBecomePrimary` waiting to take the lease over.
-// `unimplemented` fires on browsers without IndexedDB (e.g. Safari private
-// mode); same harmless fallback.
-db.enablePersistence().catch((error) => {
-    console.warn("Firestore offline persistence not available:", error.code || error.message || error);
-});
+//
+// We skip persistence inside iOS in-app WebViews (Telegram, WhatsApp,
+// Instagram, etc.). On those, WKWebView holds the IndexedDB connection from
+// the previous page open during in-app navigation, so the new page hangs
+// forever inside `updateClientMetadataAndTryBecomePrimary` waiting to write
+// its client metadata. Real Mobile Safari sends both `Safari/` and `Version/`
+// in its User-Agent; in-app WebViews are missing one or both. Network reads
+// are still cheap (~100-300 ms) and the localStorage prerender for the
+// photobook list keeps the index page instant on return visits.
+//
+// `failed-precondition` fires if persistence is already enabled by another
+// client in the same origin; `unimplemented` fires on browsers without
+// IndexedDB (e.g. Safari private mode). Both are harmless - we keep working
+// with network-only reads.
+const ua = navigator.userAgent;
+const isIOSInAppWebView =
+    /iPhone|iPad|iPod/.test(ua) && (!/Safari\//.test(ua) || !/Version\//.test(ua));
+if (!isIOSInAppWebView) {
+    db.enablePersistence().catch((error) => {
+        console.warn("Firestore offline persistence not available:", error.code || error.message || error);
+    });
+} else if (window.__DEBUG) {
+    console.log("[debug] iOS in-app WebView detected, skipping Firestore persistence");
+}
