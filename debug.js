@@ -6,12 +6,58 @@
 // is present, so production loads are unaffected.
 //
 // Also installs a small "Dump" button next to eruda's wrench - tap it to
-// open every currently rendered log line in a full-screen, selectable
-// textarea with Copy / Close buttons. Working around how finicky it is to
-// select multi-line text inside the eruda console panel on mobile.
+// open every captured log line in a full-screen, selectable textarea with
+// Copy / Close. Working around how finicky it is to select multi-line text
+// inside the eruda console panel on mobile. Captures into our own buffer
+// rather than scraping eruda's DOM, so it survives eruda version changes
+// and also catches uncaught errors / promise rejections.
 (function () {
     if (new URLSearchParams(location.search).get("debug") !== "1") return;
     window.__DEBUG = true;
+
+    var buffer = [];
+    window.__DEBUG_LOGS = buffer;
+
+    function formatArg(a) {
+        if (typeof a === "string") return a;
+        if (a instanceof Error) return a.stack || a.message || String(a);
+        if (a === null || a === undefined) return String(a);
+        try {
+            return JSON.stringify(a);
+        } catch {
+            return String(a);
+        }
+    }
+
+    function record(level, args) {
+        buffer.push({
+            ts: new Date().toISOString(),
+            level: level,
+            text: Array.prototype.map.call(args, formatArg).join(" "),
+        });
+    }
+
+    ["log", "warn", "error", "info", "debug"].forEach(function (method) {
+        var original = console[method].bind(console);
+        console[method] = function () {
+            record(method, arguments);
+            return original.apply(console, arguments);
+        };
+    });
+
+    window.addEventListener("error", function (e) {
+        record("uncaught", [
+            e.message,
+            "at",
+            (e.filename || "?") + ":" + (e.lineno || "?") + ":" + (e.colno || "?"),
+            e.error && e.error.stack ? e.error.stack : "",
+        ]);
+    });
+
+    window.addEventListener("unhandledrejection", function (e) {
+        record("rejection", [e.reason]);
+    });
+
     var s = document.createElement("script");
     s.src = "https://cdn.jsdelivr.net/npm/eruda";
     s.onload = function () {
@@ -34,17 +80,16 @@
         document.body.appendChild(btn);
     }
 
-    function collectLogText() {
-        return Array.prototype.slice
-            .call(document.querySelectorAll(".eruda-logs > li"))
-            .map(function (li) {
-                return li.innerText;
+    function bufferToText() {
+        return buffer
+            .map(function (e) {
+                return "[" + e.ts + "] " + e.level.toUpperCase() + " " + e.text;
             })
             .join("\n");
     }
 
     function showLogOverlay() {
-        var text = collectLogText();
+        var text = bufferToText();
 
         var overlay = document.createElement("div");
         overlay.style.cssText =
