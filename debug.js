@@ -64,6 +64,7 @@
         if (!window.eruda) return;
         window.eruda.init();
         console.log("[debug] eruda overlay initialized");
+        installDumpButton();
     };
     document.head.appendChild(s);
 
